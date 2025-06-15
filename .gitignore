@@ -151,3 +151,9 @@ kernel/configs/android-*.cfg
 
 # Build log
 log.txt
+error.log
+
+# Ignoring build files
+out/
+tc/
+*.zip
