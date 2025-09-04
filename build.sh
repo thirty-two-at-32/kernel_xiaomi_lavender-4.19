@@ -13,8 +13,7 @@ IMAGE="out/arch/arm64/boot/Image.gz"
 DEFCONFIG="vendor/lavender-perf_defconfig"
 
 export KBUILD_BUILD_USER="Sã Śâjjãd"
-export KBUILD_BUILD_HOST="snx"
-export KBUILD_COMPILER_STRING="$(${TC_DIR}/bin/clang --version | head -n 1 | perl -pe 's/\(http.*?\)//gs' | sed -e 's/  */ /g' -e 's/[[:space:]]*$//')"
+export KBUILD_BUILD_HOST="workspace"
 
 ##----------------------------------------------------------##
 post_msg() {
@@ -37,14 +36,20 @@ push() {
 
 ##----------------------------------------------------------##
 
+# if ! [ -d "$TC_DIR" ]; then
+    # echo "Clang not found, cloning..."
+    # if ! git clone --depth=1 -b 17 https://gitlab.com/ThankYouMario/android_prebuilts_clang-standalone "$TC_DIR"; then
+        # echo "Cloning failed! Aborting..."
+        # exit 1
+    # fi
+# fi
+
 if ! [ -d "$TC_DIR" ]; then
     echo "Clang not found, cloning..."
-    if ! git clone --depth=1 -b 17 https://gitlab.com/ThankYouMario/android_prebuilts_clang-standalone "$TC_DIR"; then
-        echo "Cloning failed! Aborting..."
-        exit 1
-    fi
+    wget https://github.com/ZyCromerZ/Clang/releases/download/22.0.0git-20250903-release/Clang-22.0.0git-20250903.tar.gz
+    mkdir -p "$TC_DIR"
+    tar -xf Clang-22.0.0git-20250903.tar.gz -C "$TC_DIR"
 fi
-
 ##----------------------------------------------------------##
 
 case "$1" in
@@ -71,20 +76,21 @@ esac
 
 compile() {
     export PATH="$TC_DIR/bin:$PATH"
-    post_msg "<b>CI Build Triggered</b>%0A<b>Kernel Version:</b> <code>$(make kernelversion)</code>%0A<b>Date:</b> <code>$(TZ=Asia/Kolkata date)</code>%0A<b>Device:</b> <code>Redmi Note 7 (lavender)</code>%0A<b>Compiler:</b> <code>$KBUILD_COMPILER_STRING</code>%0A<b>Branch:</b> <code>$(git rev-parse --abbrev-ref HEAD)</code>%0A<b>Top Commit:</b> <code>$(git log --pretty=format:'%h : %s' -1)</code>"
+    post_msg "<b>CI Build Triggered</b>%0A<b>Kernel Version:</b> <code>$(make kernelversion)</code>%0A<b>Date:</b> <code>$(TZ=Asia/Dhaka date)</code>%0A<b>Device:</b> <code>Redmi Note 7 (lavender)</code>%0A<b>Branch:</b> <code>$(git rev-parse --abbrev-ref HEAD)</code>%0A<b>Top Commit:</b> <code>$(git log --pretty=format:'%h : %s' -1)</code>"
 
     mkdir -p out
     make O=out ARCH=arm64 $DEFCONFIG
-    make -j$(nproc) ARCH=arm64 CC=clang CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- LLVM=1 LLVM_IAS=1 "$DEFCONFIG" O=out
+    make -j$(nproc) ARCH=arm64 CC=clang CROSS_COMPILE=aarch64-linux-gnu- LLVM=1 LLVM_IAS=1 "$DEFCONFIG" O=out
 
     echo -e "\nStarting compilation...\n"
-    make -j$(nproc) ARCH=arm64 CC=clang CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- LLVM=1 LLVM_IAS=1 O=out 2>&1 | tee error.log
+    make -j$(nproc) ARCH=arm64 CC=clang CROSS_COMPILE=aarch64-linux-gnu- LLVM=1 LLVM_IAS=1 O=out 2>&1 | tee error.log
 
     if ! [ -f "$IMAGE" ]; then
         push "error.log" "Build failed. See log for details."
         exit 1
     fi
 
+    mv error.log build.txt; push build.txt
     git clone -q https://github.com/Sa-Sajjad/AnyKernel3 -b 4.19
     cp "$IMAGE" AnyKernel3
 }
@@ -94,8 +100,8 @@ compile() {
 zipping() {
     cd AnyKernel3 || exit 1
     zip -r9 "../$ZIPNAME" *
-    cd ..
-    push "$ZIPNAME" "Build completed in $(($DIFF / 60)) minute(s) and $(($DIFF % 60)) second(s) %0A $ZIPNAME"
+    cd -
+    push "$ZIPNAME" "Build completed in $(($DIFF / 60)) minute(s) and $(($DIFF % 60)) second(s) $ZIPNAME"
     rm -rf AnyKernel3
 }
 
